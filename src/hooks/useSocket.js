@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 
-const SOCKET_URL = 'http://localhost:5000';
+const SOCKET_URL = 'https://backriocuartocelulares.up.railway.app';
 
 export const useSocket = () => {
   const socketRef = useRef();
