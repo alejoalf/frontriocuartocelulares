@@ -8,7 +8,7 @@ export default function AdminLogin({ onLogin }) {
   const handleSubmit = async e => {
     e.preventDefault();
     setError("");
-    const res = await fetch("https://backriocuartocelulares.up.railway.app/api/admin/login", {
+    const res = await fetch("https://backriocuartocelulares.onrender.com", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: user, password: pass })
