@@ -8,7 +8,7 @@ export default function AdminLogin({ onLogin }) {
   const handleSubmit = async e => {
     e.preventDefault();
     setError("");
-    const res = await fetch("https://backriocuartocelulares.onrender.com", {
+    const res = await fetch(`${process.env.REACT_APP_API_URL}/api/admin/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: user, password: pass })
