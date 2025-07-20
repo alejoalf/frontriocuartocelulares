@@ -14,7 +14,7 @@ export default function AdminHome() {
 
   // Función para cargar productos
   const fetchProductos = async () => {
-    const res = await fetch("http://localhost:5000/api/productos");
+    const res = await fetch("https://backriocuartocelulares.onrender.com/api/productos");
     const data = await res.json();
     setProductos(data);
   };

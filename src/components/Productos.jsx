@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { addToCart, setProductos, updateProductoStock, removeProducto } from "../store/cartSlice";
 import { useSocket } from "../hooks/useSocket";
 
-const API_URL = "https://backriocuartocelulares.up.railway.app/api/productos";
+const API_URL = "https://backriocuartocelulares.onrender.com/api/productos";
 const PAGE_SIZE = 6;
 
 function ConfirmModal({ open, onClose, onConfirm, producto }) {

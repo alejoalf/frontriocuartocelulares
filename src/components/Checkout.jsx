@@ -73,7 +73,7 @@ export default function Checkout() {
     }
     setLoading(true);
     try {
-      const res = await fetch("https://backriocuartocelulares.up.railway.app/api/ordenes", {
+      const res = await fetch("https://backriocuartocelulares.onrender.com/api/ordenes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, total, items })
@@ -95,7 +95,7 @@ export default function Checkout() {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch("https://backriocuartocelulares.up.railway.app/api/pago/mercadopago", {
+      const res = await fetch("https://backriocuartocelulares.onrender.com/api/pago/mercadopago", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items, nombre: form.nombre, email: form.email })

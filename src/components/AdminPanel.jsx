@@ -59,7 +59,7 @@ export default function AdminPanel({ token, onProductoAgregado, setProductos }) 
       return;
     }
     // Enviar producto
-    const res = await fetch("http://localhost:5000/api/productos", {
+    const res = await fetch("https://backriocuartocelulares.onrender.com/api/productos", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

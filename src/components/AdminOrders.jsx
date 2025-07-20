@@ -38,7 +38,7 @@ export default function AdminOrders() {
   useEffect(() => {
     if (!token) return;
     setLoading(true);
-    fetch("https://backriocuartocelulares.up.railway.app/api/ordenes", {
+    fetch("https://backriocuartocelulares.onrender.com/api/ordenes", {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -67,7 +67,7 @@ export default function AdminOrders() {
     if (!selected) return;
     setSaving(true);
     try {
-      const res = await fetch(`https://backriocuartocelulares.up.railway.app/api/ordenes/${selected.id}`, {
+      const res = await fetch(`https://backriocuartocelulares.onrender.com/api/ordenes/${selected.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
