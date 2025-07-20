@@ -173,28 +173,28 @@ export default function Checkout() {
   );
 
   return (
-    <div className="min-h-[80vh] flex flex-col md:flex-row items-start justify-center bg-gray-50 py-10 animate-fade-in">
-      <motion.div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl p-10 border border-blue-100 mx-auto md:mx-0"
+    <div className="min-h-[80vh] flex flex-col md:flex-row items-start justify-center bg-gray-50 py-4 sm:py-8 animate-fade-in">
+      <motion.div className="w-full max-w-lg sm:max-w-xl bg-white rounded-3xl shadow-2xl p-4 sm:p-8 md:p-10 border border-blue-100 mx-auto md:mx-0"
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
         {/* Barra de progreso */}
-        <div className="flex items-center mb-10 gap-4">
+        <div className="flex flex-col sm:flex-row items-center mb-8 gap-4 w-full overflow-x-auto">
           {steps.map((s, i) => (
             <React.Fragment key={s.label}>
               <div className={`flex items-center gap-2 ${i < step ? 'text-blue-700' : i === step ? 'text-blue-900 font-bold' : 'text-gray-400'}`}>
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center border-2 ${i <= step ? 'border-blue-700 bg-blue-50' : 'border-gray-300 bg-white'} text-xl`}>{s.icon}</div>
-                <span className="ml-1 mr-2 text-base font-semibold">{s.label}</span>
+                <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center border-2 ${i <= step ? 'border-blue-700 bg-blue-50' : 'border-gray-300 bg-white'} text-lg sm:text-xl`}>{s.icon}</div>
+                <span className="ml-1 mr-2 text-sm sm:text-base font-semibold">{s.label}</span>
               </div>
-              {i < steps.length - 1 && <div className={`flex-1 h-1 ${i < step ? 'bg-blue-700' : 'bg-gray-200'} rounded-full`}></div>}
+              {i < steps.length - 1 && <div className={`flex-1 h-1 ${i < step ? 'bg-blue-700' : 'bg-gray-200'} rounded-full min-w-[24px]`}></div>}
             </React.Fragment>
           ))}
         </div>
-        <form onSubmit={step === 2 ? handleSubmit : handleNext} className="grid grid-cols-1 gap-8 mb-8">
+        <form onSubmit={step === 2 ? handleSubmit : handleNext} className="grid grid-cols-1 gap-6 mb-8">
           <AnimatePresence mode="wait">
             {step === 0 && (
-              <motion.div className="grid grid-cols-1 md:grid-cols-2 gap-8" key="step1"
+              <motion.div className="grid grid-cols-1 sm:grid-cols-2 gap-6" key="step1"
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 30 }}
@@ -203,7 +203,7 @@ export default function Checkout() {
                 <div>
                   <label className="block font-semibold mb-1 flex items-center gap-2"><FaUser /> Nombre completo</label>
                   <div className="relative">
-                    <input name="nombre" value={form.nombre} onChange={handleChange} onBlur={handleBlur} className={`w-full p-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 ${touched.nombre && errors.nombre ? 'border-red-400' : 'border-gray-200'}`} required />
+                    <input name="nombre" value={form.nombre} onChange={handleChange} onBlur={handleBlur} className={`w-full p-3 sm:p-3.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 text-base ${touched.nombre && errors.nombre ? 'border-red-400' : 'border-gray-200'}`} required />
                     {touched.nombre && !errors.nombre && <FaCheckCircle className="absolute right-3 top-3 text-green-500" />}
                     {touched.nombre && errors.nombre && <FaExclamationTriangle className="absolute right-3 top-3 text-red-500" />}
                   </div>
@@ -212,16 +212,16 @@ export default function Checkout() {
                 <div>
                   <label className="block font-semibold mb-1 flex items-center gap-2"><FaEnvelope /> Email</label>
                   <div className="relative">
-                    <input name="email" type="email" value={form.email} onChange={handleChange} onBlur={handleBlur} className={`w-full p-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 ${touched.email && errors.email ? 'border-red-400' : 'border-gray-200'}`} required />
+                    <input name="email" type="email" value={form.email} onChange={handleChange} onBlur={handleBlur} className={`w-full p-3 sm:p-3.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 text-base ${touched.email && errors.email ? 'border-red-400' : 'border-gray-200'}`} required />
                     {touched.email && !errors.email && <FaCheckCircle className="absolute right-3 top-3 text-green-500" />}
                     {touched.email && errors.email && <FaExclamationTriangle className="absolute right-3 top-3 text-red-500" />}
                   </div>
                   {touched.email && errors.email && <div className="text-red-600 text-sm mt-1">{errors.email}</div>}
                 </div>
-                <div className="md:col-span-2">
+                <div className="sm:col-span-2">
                   <label className="block font-semibold mb-1 flex items-center gap-2"><FaPhone /> Teléfono</label>
                   <div className="relative">
-                    <input name="telefono" value={form.telefono} onChange={handleChange} onBlur={handleBlur} className={`w-full p-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 ${touched.telefono && errors.telefono ? 'border-red-400' : 'border-gray-200'}`} required />
+                    <input name="telefono" value={form.telefono} onChange={handleChange} onBlur={handleBlur} className={`w-full p-3 sm:p-3.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 text-base ${touched.telefono && errors.telefono ? 'border-red-400' : 'border-gray-200'}`} required />
                     {touched.telefono && !errors.telefono && <FaCheckCircle className="absolute right-3 top-3 text-green-500" />}
                     {touched.telefono && errors.telefono && <FaExclamationTriangle className="absolute right-3 top-3 text-red-500" />}
                   </div>
@@ -238,7 +238,7 @@ export default function Checkout() {
               >
                 <label className="block font-semibold mb-1 flex items-center gap-2"><FaHome /> Dirección</label>
                 <div className="relative">
-                  <input name="direccion" value={form.direccion} onChange={handleChange} onBlur={handleBlur} className={`w-full p-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 ${touched.direccion && errors.direccion ? 'border-red-400' : 'border-gray-200'}`} required />
+                  <input name="direccion" value={form.direccion} onChange={handleChange} onBlur={handleBlur} className={`w-full p-3 sm:p-3.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 text-base ${touched.direccion && errors.direccion ? 'border-red-400' : 'border-gray-200'}`} required />
                   {touched.direccion && !errors.direccion && <FaCheckCircle className="absolute right-3 top-3 text-green-500" />}
                   {touched.direccion && errors.direccion && <FaExclamationTriangle className="absolute right-3 top-3 text-red-500" />}
                 </div>

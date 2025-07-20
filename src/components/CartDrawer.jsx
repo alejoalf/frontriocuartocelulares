@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FaShoppingCart, FaTrash, FaTimes, FaBoxOpen, FaMinus, FaPlus, FaExclamationTriangle } from "react-icons/fa";
 import { useCart } from "../hooks/useCart";
 import { useSocket } from "../hooks/useSocket";
+import { useNavigate } from "react-router-dom";
 
 export default function CartDrawer({ open, onClose, onCheckout, addToast }) {
   const items = useSelector(state => state.cart.items);
@@ -17,6 +18,7 @@ export default function CartDrawer({ open, onClose, onCheckout, addToast }) {
   // Simulación de envío
   const envio = items.length > 0 ? (total > 50000 ? 0 : 5000) : 0;
   const totalFinal = subtotal + envio;
+  const navigate = useNavigate();
 
   // Al cerrar el Drawer, limpiar el error y el mensaje de éxito
   const handleClose = () => {
@@ -54,6 +56,7 @@ export default function CartDrawer({ open, onClose, onCheckout, addToast }) {
   };
   const handleCheckout = () => {
     if (onCheckout) onCheckout();
+    navigate('/checkout');
     if (addToast) addToast("¡Listo para finalizar la compra!", "success");
   };
 
