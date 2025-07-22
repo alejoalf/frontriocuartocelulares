@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { clearCart } from "../store/cartSlice";
 import { useNavigate } from "react-router-dom";
@@ -15,16 +15,22 @@ const steps = [
 ];
 
 export default function Checkout() {
-  const items = useSelector(state => state.cart.items);
-  const total = items.reduce((sum, p) => sum + p.precio * p.cantidad, 0);
+  const itemsRedux = useSelector(state => state.cart.items);
+  const totalRedux = itemsRedux.reduce((sum, p) => sum + p.precio * p.cantidad, 0);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  // Estado para el formulario y el carrito
   const [form, setForm] = useState({ nombre: "", email: "", telefono: "", direccion: "" });
+  const [items, setItems] = useState(itemsRedux);
+  const [total, setTotal] = useState(totalRedux);
   const [touched, setTouched] = useState({});
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(0);
+  const [pagoStatus, setPagoStatus] = useState(null); // null | 'success' | 'failure' | 'pending'
+  const [pagoMsg, setPagoMsg] = useState("");
+  const [puedeConfirmar, setPuedeConfirmar] = useState(false);
 
   // Validaciones campo a campo
   const errors = {
@@ -39,6 +45,45 @@ export default function Checkout() {
     if (step === 2) return Object.values(errors).every(e => !e) && items.length > 0;
     return false;
   };
+
+  // Guardar datos en localStorage antes de redirigir a Mercado Pago
+  const saveCheckoutData = () => {
+    localStorage.setItem("checkoutForm", JSON.stringify(form));
+    localStorage.setItem("checkoutItems", JSON.stringify(items));
+    localStorage.setItem("checkoutTotal", JSON.stringify(total));
+  };
+  // Restaurar datos si existen
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("status");
+    if (status) {
+      setPagoStatus(status);
+      if (status === "success") {
+        setPagoMsg("¡Pago realizado con éxito! Ahora puedes confirmar tu compra.");
+        setPuedeConfirmar(true);
+      } else if (status === "failure") {
+        setPagoMsg("El pago fue cancelado o falló. Por favor, intenta pagar nuevamente.");
+        setPuedeConfirmar(false);
+      } else if (status === "pending") {
+        setPagoMsg("El pago está pendiente. Por favor, finaliza el pago o vuelve a intentarlo.");
+        setPuedeConfirmar(false);
+      }
+      // Restaurar datos guardados
+      const savedForm = localStorage.getItem("checkoutForm");
+      const savedItems = localStorage.getItem("checkoutItems");
+      const savedTotal = localStorage.getItem("checkoutTotal");
+      if (savedForm && savedItems && savedTotal) {
+        setForm(JSON.parse(savedForm));
+        setItems(JSON.parse(savedItems));
+        setTotal(JSON.parse(savedTotal));
+      }
+      setStep(2); // Ir directo al paso de confirmación
+    } else {
+      // Si no viene de Mercado Pago, usar redux
+      setItems(itemsRedux);
+      setTotal(totalRedux);
+    }
+  }, []); // Solo al montar
 
   const handleChange = e => {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
@@ -63,12 +108,13 @@ export default function Checkout() {
     setStep(s => s - 1);
   };
 
+  // Solo se puede confirmar si el pago fue exitoso
   const handleSubmit = async e => {
     e.preventDefault();
     setTouched({ nombre: true, email: true, telefono: true, direccion: true });
     setError("");
-    if (!isStepValid()) {
-      setError("Por favor corrige los errores antes de continuar.");
+    if (!isStepValid() || !puedeConfirmar) {
+      setError("Debes realizar el pago exitosamente antes de confirmar la compra.");
       return;
     }
     setLoading(true);
@@ -81,6 +127,12 @@ export default function Checkout() {
       if (res.ok) {
         setSuccess(true);
         dispatch(clearCart());
+        // Limpiar localStorage
+        localStorage.removeItem("checkoutForm");
+        localStorage.removeItem("checkoutItems");
+        localStorage.removeItem("checkoutTotal");
+        // Limpiar query params
+        window.history.replaceState({}, document.title, window.location.pathname);
       } else {
         const data = await res.json();
         setError(data.error || "Error al procesar la orden");
@@ -91,10 +143,12 @@ export default function Checkout() {
     setLoading(false);
   };
 
+  // Solo se puede pagar si no hay pago exitoso
   const handleMercadoPago = async () => {
     setError("");
     setLoading(true);
     try {
+      saveCheckoutData();
       const res = await fetch("https://backriocuartocelulares.onrender.com/api/pago/mercadopago", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -279,22 +333,37 @@ export default function Checkout() {
                   <FaWhatsapp className="text-green-500" />
                   <span className="text-sm">¿Dudas? <a href="https://wa.me/543584357917?text=Hola%2C%20quiero%20consultar%20por%20mi%20compra" target="_blank" rel="noopener noreferrer" className="underline text-blue-700 font-semibold">Escribinos por WhatsApp</a></span>
                 </div>
-                {/* Botón Mercado Pago */}
-                <button
-                  type="button"
-                  className="mt-6 bg-yellow-500 hover:bg-yellow-600 text-white py-3 px-8 rounded font-bold flex items-center gap-2 disabled:opacity-60"
-                  onClick={handleMercadoPago}
-                  disabled={!isStepValid() || loading}
-                >
-                  Pagar con Mercado Pago
-                </button>
+                {/* Mensaje de estado de pago */}
+                {pagoMsg && (
+                  <div className={`mt-6 mb-2 text-center font-semibold ${pagoStatus === 'success' ? 'text-green-700' : 'text-red-600'}`}>{pagoMsg}</div>
+                )}
+                {/* Botón Mercado Pago solo si no hay pago exitoso */}
+                {!puedeConfirmar && (
+                  <button
+                    type="button"
+                    className="mt-6 bg-yellow-500 hover:bg-yellow-600 text-white py-3 px-8 rounded font-bold flex items-center gap-2 disabled:opacity-60"
+                    onClick={handleMercadoPago}
+                    disabled={!isStepValid() || loading}
+                  >
+                    Pagar con Mercado Pago
+                  </button>
+                )}
+                {/* Botón Confirmar compra solo si el pago fue exitoso */}
+                {puedeConfirmar && (
+                  <button
+                    type="submit"
+                    className="mt-6 bg-blue-700 hover:bg-blue-800 text-white py-3 px-8 rounded font-bold flex items-center gap-2 disabled:opacity-60"
+                    disabled={!isStepValid() || loading}
+                  >
+                    {loading ? <><span className="animate-spin mr-2"><FaCheckCircle /></span>Procesando...</> : <>Confirmar compra <FaCheckCircle /></>}
+                  </button>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
           <div className="mt-4 flex gap-2">
             {step > 0 && <button type="button" onClick={handleBack} className="bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 px-8 rounded font-semibold flex items-center gap-2"><FaArrowLeft /> Atrás</button>}
             {step < 2 && <button type="submit" className="bg-blue-700 hover:bg-blue-800 text-white py-3 px-8 rounded font-bold flex items-center gap-2 disabled:opacity-60" disabled={!isStepValid() || loading}>Siguiente <FaArrowRight /></button>}
-            {step === 2 && <button type="submit" className="bg-blue-700 hover:bg-blue-800 text-white py-3 px-8 rounded font-bold flex items-center gap-2 disabled:opacity-60" disabled={!isStepValid() || loading}>{loading ? <><span className="animate-spin mr-2"><FaCheckCircle /></span>Procesando...</> : <>Confirmar compra <FaCheckCircle /></>}</button>}
           </div>
           {error && <div className="text-red-600 mt-2 font-semibold">{error}</div>}
         </form>
