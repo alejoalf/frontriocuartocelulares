@@ -1,8 +1,10 @@
 import React from "react";
-import { FaTrash, FaEdit } from "react-icons/fa";
+import { FaTrash, FaEdit, FaSearch, FaFilter, FaTimes } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
 import { addToCart, setProductos, updateProductoStock, removeProducto } from "../store/cartSlice";
 import { useSocket } from "../hooks/useSocket";
+import { motion } from "framer-motion";
+import Categorias from "./Categorias";
 
 const API_URL = "https://backriocuartocelulares.onrender.com/api/productos";
 const PAGE_SIZE = 6;
@@ -23,45 +25,157 @@ function ConfirmModal({ open, onClose, onConfirm, producto }) {
   );
 }
 
-function EditModal({ open, onClose, onSave, producto }) {
+function EditModal({ open, onClose, onSave, producto, productosExistentes = [] }) {
   const [form, setForm] = React.useState(producto || {});
+  const [showCategoriaSuggestions, setShowCategoriaSuggestions] = React.useState(false);
+  const [showSubcategoriaSuggestions, setShowSubcategoriaSuggestions] = React.useState(false);
+  
   React.useEffect(() => { setForm(producto || {}); }, [producto]);
+  
+  // Obtener categorías y subcategorías existentes
+  const categoriasExistentes = React.useMemo(() => {
+    const categorias = new Set();
+    productosExistentes.forEach(p => {
+      if (p.categoria) categorias.add(p.categoria);
+    });
+    return Array.from(categorias).sort();
+  }, [productosExistentes]);
+  
+  const subcategoriasExistentes = React.useMemo(() => {
+    const subcategorias = new Set();
+    productosExistentes.forEach(p => {
+      if (p.categoria === form.categoria && p.subcategoria) {
+        subcategorias.add(p.subcategoria);
+      }
+    });
+    return Array.from(subcategorias).sort();
+  }, [productosExistentes, form.categoria]);
+  
   if (!open) return null;
+  
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
       <form
-        className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-left"
+        className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-left max-h-[90vh] overflow-y-auto"
         onSubmit={e => { e.preventDefault(); onSave(form); }}
       >
         <h3 className="text-lg font-bold mb-4 text-center">Editar producto</h3>
+        
         <div className="mb-3">
           <label className="block text-sm font-semibold mb-1">Nombre</label>
-          <input className="w-full p-2 rounded border" value={form.nombre || ""} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} required />
+          <input 
+            className="w-full p-2 rounded border" 
+            value={form.nombre || ""} 
+            onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} 
+            required 
+          />
         </div>
+        
         <div className="mb-3">
           <label className="block text-sm font-semibold mb-1">Descripción</label>
-          <textarea className="w-full p-2 rounded border" value={form.descripcion || ""} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+          <textarea 
+            className="w-full p-2 rounded border" 
+            value={form.descripcion || ""} 
+            onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} 
+          />
         </div>
+        
         <div className="mb-3">
           <label className="block text-sm font-semibold mb-1">Precio</label>
-          <input type="number" className="w-full p-2 rounded border" value={form.precio || ""} onChange={e => setForm(f => ({ ...f, precio: e.target.value }))} required min="0" />
+          <input 
+            type="number" 
+            className="w-full p-2 rounded border" 
+            value={form.precio || ""} 
+            onChange={e => setForm(f => ({ ...f, precio: e.target.value }))} 
+            required 
+            min="0" 
+          />
         </div>
+        
         <div className="mb-3">
           <label className="block text-sm font-semibold mb-1">Imagen (URL)</label>
-          <input className="w-full p-2 rounded border" value={form.imagen || ""} onChange={e => setForm(f => ({ ...f, imagen: e.target.value }))} />
+          <input 
+            className="w-full p-2 rounded border" 
+            value={form.imagen || ""} 
+            onChange={e => setForm(f => ({ ...f, imagen: e.target.value }))} 
+          />
         </div>
+        
         <div className="mb-3">
           <label className="block text-sm font-semibold mb-1">Stock</label>
-          <input type="number" className="w-full p-2 rounded border" value={form.stock || 0} onChange={e => setForm(f => ({ ...f, stock: e.target.value }))} min="0" />
+          <input 
+            type="number" 
+            className="w-full p-2 rounded border" 
+            value={form.stock || 0} 
+            onChange={e => setForm(f => ({ ...f, stock: e.target.value }))} 
+            min="0" 
+          />
         </div>
-        <div className="mb-3">
+        
+        <div className="mb-3 relative">
           <label className="block text-sm font-semibold mb-1">Categoría</label>
-          <input className="w-full p-2 rounded border" value={form.categoria || ""} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))} required />
+          <input 
+            className="w-full p-2 rounded border" 
+            value={form.categoria || ""} 
+            onChange={e => {
+              setForm(f => ({ ...f, categoria: e.target.value, subcategoria: "" }));
+              setShowCategoriaSuggestions(true);
+            }}
+            onFocus={() => setShowCategoriaSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowCategoriaSuggestions(false), 200)}
+            required 
+          />
+          {showCategoriaSuggestions && categoriasExistentes.length > 0 && (
+            <div className="absolute z-10 w-full bg-white border rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+              {categoriasExistentes.map(cat => (
+                <button
+                  key={cat}
+                  type="button"
+                  className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm"
+                  onClick={() => {
+                    setForm(f => ({ ...f, categoria: cat, subcategoria: "" }));
+                    setShowCategoriaSuggestions(false);
+                  }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        <div className="mb-6">
+        
+        <div className="mb-6 relative">
           <label className="block text-sm font-semibold mb-1">Subcategoría</label>
-          <input className="w-full p-2 rounded border" value={form.subcategoria || ""} onChange={e => setForm(f => ({ ...f, subcategoria: e.target.value }))} required />
+          <input 
+            className="w-full p-2 rounded border" 
+            value={form.subcategoria || ""} 
+            onChange={e => {
+              setForm(f => ({ ...f, subcategoria: e.target.value }));
+              setShowSubcategoriaSuggestions(true);
+            }}
+            onFocus={() => setShowSubcategoriaSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSubcategoriaSuggestions(false), 200)}
+            required 
+          />
+          {showSubcategoriaSuggestions && subcategoriasExistentes.length > 0 && (
+            <div className="absolute z-10 w-full bg-white border rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+              {subcategoriasExistentes.map(subcat => (
+                <button
+                  key={subcat}
+                  type="button"
+                  className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm"
+                  onClick={() => {
+                    setForm(f => ({ ...f, subcategoria: subcat }));
+                    setShowSubcategoriaSuggestions(false);
+                  }}
+                >
+                  {subcat}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+        
         <div className="flex gap-4 justify-center">
           <button type="button" onClick={onClose} className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 font-semibold">Cancelar</button>
           <button type="submit" className="px-4 py-2 rounded bg-blue-700 text-white hover:bg-blue-800 font-semibold">Guardar</button>
@@ -85,6 +199,8 @@ export default function Productos({ productos: productosProp, adminMode }) {
   const [error, setError] = React.useState("");
   const [editModalOpen, setEditModalOpen] = React.useState(false);
   const [productoAEditar, setProductoAEditar] = React.useState(null);
+  const [mostrarCategorias, setMostrarCategorias] = React.useState(true);
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = React.useState("");
   
   const dispatch = useDispatch();
   const socket = useSocket();
@@ -177,6 +293,26 @@ export default function Productos({ productos: productosProp, adminMode }) {
   const totalPages = Math.ceil(productosFiltrados.length / PAGE_SIZE) || 1;
   const productosPagina = productosFiltrados.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   React.useEffect(() => { setCurrentPage(1); }, [busqueda, cat, subcat, productosFiltrados.length]);
+
+  // Manejar clic en categoría
+  const handleCategoriaClick = (categoria) => {
+    setCategoriaSeleccionada(categoria);
+    setCat(categoria);
+    setSubcat("");
+    setBusqueda("");
+    setCurrentPage(1);
+    setMostrarCategorias(false);
+  };
+
+  // Volver a mostrar categorías
+  const handleVolverCategorias = () => {
+    setMostrarCategorias(true);
+    setCategoriaSeleccionada("");
+    setCat("");
+    setSubcat("");
+    setBusqueda("");
+    setCurrentPage(1);
+  };
 
   // Eliminar producto
   const handleDelete = async () => {
@@ -280,7 +416,7 @@ export default function Productos({ productos: productosProp, adminMode }) {
     return (
       <section className="w-full">
         <ConfirmModal open={modalOpen} onClose={() => setModalOpen(false)} onConfirm={handleDelete} producto={productoAEliminar} />
-        <EditModal open={editModalOpen} onClose={() => setEditModalOpen(false)} onSave={handleEdit} producto={productoAEditar} />
+        <EditModal open={editModalOpen} onClose={() => setEditModalOpen(false)} onSave={handleEdit} producto={productoAEditar} productosExistentes={productos} />
         {msg && <div className="text-green-600 text-center font-semibold mb-4">{msg}</div>}
         {error && <div className="text-red-600 text-center font-semibold mb-4">{error}</div>}
         <div className="overflow-x-auto rounded-xl shadow border bg-white dark:bg-gray-900">
@@ -353,154 +489,210 @@ export default function Productos({ productos: productosProp, adminMode }) {
     );
   }
 
-  // Vista pública (tarjetas)
+  // Vista pública - Mostrar categorías o productos
+  if (mostrarCategorias && !adminMode) {
+    return (
+      <Categorias 
+        onCategoriaClick={handleCategoriaClick}
+        categoriaSeleccionada={categoriaSeleccionada}
+        productos={productos}
+      />
+    );
+  }
+
+  // Vista de productos filtrados
   return (
-    <section className="bg-[#285be7] dark:bg-[#111111] text-white w-full pt-10 pb-10">
-      <div className="w-full max-w-7xl mx-auto">
+    <section className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 text-white w-full min-h-screen">
+      <div className="w-full max-w-7xl mx-auto px-4 py-8">
         <ConfirmModal open={modalOpen} onClose={() => setModalOpen(false)} onConfirm={handleDelete} producto={productoAEliminar} />
-        <EditModal open={editModalOpen} onClose={() => setEditModalOpen(false)} onSave={handleEdit} producto={productoAEditar} />
-        {msg && <div className="text-green-600 text-center font-semibold mb-4">{msg}</div>}
-        {error && <div className="text-red-600 text-center font-semibold mb-4">{error}</div>}
-        {/* Búsqueda y tabs */}
-        <div className="flex flex-col md:flex-row md:items-center justify-center gap-4 mb-6 w-full">
-          <input
-            type="text"
-            placeholder="Buscar producto..."
-            value={busqueda}
-            onChange={e => setBusqueda(e.target.value)}
-            className="w-full max-w-xl p-4 rounded-2xl border border-blue-200 shadow focus:ring-2 focus:ring-blue-400 focus:outline-none text-lg bg-white/90 font-medium"
-          />
-          {/* Tabs de categorías eliminados para dejar solo Top Categorías */}
-        </div>
-        {/* Top Categorías (solo público) */}
-        {!adminMode && topCategorias.length > 0 && (
-          <div className="mb-10">
-            <h3 className="text-lg font-bold mb-4 ml-2">Top Categorías</h3>
-            <div className="flex gap-4 overflow-x-auto pb-2 px-2 lg:grid lg:grid-cols-5 lg:gap-3 lg:overflow-x-visible">
-              {/* Tarjeta 'Todos' */}
+        <EditModal open={editModalOpen} onClose={() => setEditModalOpen(false)} onSave={handleEdit} producto={productoAEditar} productosExistentes={productos} />
+        
+        {msg && <div className="text-green-400 text-center font-semibold mb-4 bg-green-900/20 p-3 rounded-lg">{msg}</div>}
+        {error && <div className="text-red-400 text-center font-semibold mb-4 bg-red-900/20 p-3 rounded-lg">{error}</div>}
+        
+        {/* Header con navegación */}
+        <div className="mb-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            {/* Botón volver a categorías */}
+            <button
+              onClick={handleVolverCategorias}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-full transition-all duration-300 backdrop-blur-sm"
+            >
+              <FaTimes className="w-4 h-4" />
+              Volver a categorías
+            </button>
+            
+            {/* Título de la categoría seleccionada */}
+            {categoriaSeleccionada && (
+              <div className="text-center">
+                <h2 className="text-3xl font-bold text-white">
+                  {categoriaSeleccionada}
+                </h2>
+                <p className="text-blue-100 mt-1">
+                  {productosFiltrados.length} productos encontrados
+                </p>
+              </div>
+            )}
+            
+            {/* Búsqueda */}
+            <div className="relative max-w-md w-full">
+              <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-300 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Buscar productos..."
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-white placeholder-blue-200 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50"
+              />
+            </div>
+          </div>
+          
+          {/* Filtros de subcategorías */}
+          {cat && subcategorias.length > 1 && (
+            <div className="flex flex-wrap justify-center gap-3 mb-8">
               <button
-                onClick={() => setCat("")}
-                className={`flex flex-col items-center bg-gray-50 rounded-2xl shadow-sm border border-gray-200 px-6 py-7 min-w-[160px] max-w-[210px] transition-all duration-200 hover:shadow-lg hover:border-blue-400 hover:bg-blue-50 focus:outline-none ${cat === '' ? 'ring-2 ring-blue-400' : ''}`}
-                style={{ flex: '0 0 auto' }}
+                className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 ${
+                  subcat === "" 
+                    ? "bg-white text-blue-700 shadow-lg" 
+                    : "bg-white/10 text-white hover:bg-white/20 backdrop-blur-sm"
+                }`}
+                onClick={() => setSubcat("")}
               >
-                <div className="flex items-center justify-center mb-3">
-                  <img
-                    src={'/logo.png'}
-                    alt={'Todos'}
-                    className="w-20 h-20 object-contain mb-3 mx-auto"
-                  />
-                </div>
-                <span className="font-bold text-blue-800 text-base mb-1 text-center">Todos</span>
-                <span className="text-xs text-gray-400 font-medium">{productosProp ? productosProp.length : productos.length} items</span>
+                Todas las subcategorías
               </button>
-              {topCategorias.map(cat => (
+              {subcategorias.map(s => (
                 <button
-                  key={cat.nombre}
-                  onClick={() => setCat(cat.nombre)}
-                  className={`flex flex-col items-center bg-gray-50 rounded-2xl shadow-sm border border-gray-200 px-6 py-7 min-w-[160px] max-w-[210px] transition-all duration-200 hover:shadow-lg hover:border-blue-400 hover:bg-blue-50 focus:outline-none ${cat.nombre === cat ? "ring-2 ring-blue-400" : ""}`}
-                  style={{ flex: '0 0 auto' }}
+                  key={s}
+                  className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 ${
+                    subcat === s 
+                      ? "bg-white text-blue-700 shadow-lg" 
+                      : "bg-white/10 text-white hover:bg-white/20 backdrop-blur-sm"
+                  }`}
+                  onClick={() => setSubcat(s)}
                 >
-                  <div className="flex items-center justify-center mb-3">
-                    <img
-                      src={cat.imagen || "/logo.png"}
-                      alt={cat.nombre}
-                      className={`${cat.nombre === 'Celulares' ? 'w-24 h-24' : 'w-20 h-20'} object-contain mb-3 mx-auto`}
-                      onError={e => { e.target.onerror = null; e.target.src = "/logo.png"; }}
-                    />
-                  </div>
-                  <span className="font-bold text-blue-800 text-base mb-1 text-center">{cat.nombre}</span>
-                  <span className="text-xs text-gray-400 font-medium">{cat.cantidad} {cat.cantidad === 1 ? "item" : "items"}</span>
+                  {s}
                 </button>
               ))}
             </div>
-            {/* Tabs de subcategorías debajo de top categorías */}
-            {cat && subcategorias.length > 1 && (
-              <div className="flex flex-wrap justify-center gap-2 mt-8 mb-8">
-                <button
-                  className={`px-4 py-1 rounded-full font-semibold transition shadow-sm border ${subcat === "" ? "bg-cyan-600 text-white border-cyan-600" : "bg-cyan-100 text-cyan-700 border-cyan-200 hover:bg-cyan-200"}`}
-                  onClick={() => setSubcat("")}
-                >
-                  Todas
-                </button>
-                {subcategorias.map(s => (
-                  <button
-                    key={s}
-                    className={`px-4 py-1 rounded-full font-semibold transition shadow-sm border ${subcat === s ? "bg-cyan-600 text-white border-cyan-600" : "bg-cyan-100 text-cyan-700 border-cyan-200 hover:bg-cyan-200"}`}
-                    onClick={() => setSubcat(s)}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </div>
+
         {/* Grid de productos */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-10 justify-items-center w-full min-h-[300px]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8 justify-items-center w-full min-h-[400px]">
           {productosPagina.length === 0 ? (
-            <div className="col-span-full text-gray-500 text-lg py-10">
-              {!adminMode && productos.length > 0 ? 
-                "No hay productos disponibles con stock." : 
-                "No hay productos."
-              }
+            <div className="col-span-full text-center py-16">
+              <div className="text-blue-200 text-xl font-semibold mb-4">
+                {busqueda ? "No se encontraron productos con esa búsqueda." : "No hay productos disponibles en esta categoría."}
+              </div>
+              {busqueda && (
+                <button
+                  onClick={() => setBusqueda("")}
+                  className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-full transition-all duration-300"
+                >
+                  Limpiar búsqueda
+                </button>
+              )}
             </div>
           ) : (
             productosPagina.map(p => (
-              <div
+              <motion.div
                 key={p.id}
-                className={`group flex flex-col items-center bg-white/90 dark:bg-gray-900/90 rounded-2xl shadow-xl border border-blue-100 dark:border-gray-700 hover:shadow-2xl hover:-translate-y-2 transition-all duration-200 p-6 text-center mb-6 h-[370px] min-h-[370px] max-h-[370px] w-80 justify-between relative dark:text-cyan-100`}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="group flex flex-col items-center bg-white/10 backdrop-blur-sm rounded-2xl shadow-2xl border border-white/20 hover:shadow-3xl hover:-translate-y-2 transition-all duration-300 p-6 text-center h-[420px] w-full max-w-[280px] justify-between relative overflow-hidden"
               >
-                {/* Acciones admin arriba a la derecha, pero en el flujo */}
+                {/* Acciones admin */}
                 {adminMode && (
-                  <div className="flex w-full justify-end mb-2">
-                    <button className="p-2 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-700 shadow ml-2" onClick={() => { setProductoAEditar(p); setEditModalOpen(true); }}><FaEdit size={16} /></button>
-                    <button className="p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-700 shadow ml-2" onClick={() => { setProductoAEliminar(p); setModalOpen(true); }}><FaTrash size={16} /></button>
+                  <div className="absolute top-2 right-2 flex gap-2 z-10">
+                    <button 
+                      className="p-2 rounded-full bg-blue-500/80 hover:bg-blue-600 text-white shadow-lg backdrop-blur-sm" 
+                      onClick={() => { setProductoAEditar(p); setEditModalOpen(true); }}
+                    >
+                      <FaEdit size={14} />
+                    </button>
+                    <button 
+                      className="p-2 rounded-full bg-red-500/80 hover:bg-red-600 text-white shadow-lg backdrop-blur-sm" 
+                      onClick={() => { setProductoAEliminar(p); setModalOpen(true); }}
+                    >
+                      <FaTrash size={14} />
+                    </button>
                   </div>
                 )}
-                <img
-                  src={p.imagen || "/logo.png"}
-                  alt={p.nombre}
-                  className="w-24 h-24 object-contain mb-2 rounded-lg border border-blue-100 bg-white mx-auto flex-shrink-0"
-                />
-                <h3 className="text-lg font-bold text-blue-700 mb-1 break-words">{p.nombre}</h3>
-                <div className="text-gray-700 mb-1 text-sm break-words">{p.descripcion}</div>
-                <div className="text-xs text-gray-500 mb-1">Categoría: {p.categoria || <span className="italic">Sin categoría</span>}</div>
-                <div className="text-xs text-gray-500 mb-2">Subcategoría: {p.subcategoria || <span className="italic">Sin subcategoría</span>}</div>
-                <div className="text-blue-700 font-extrabold text-xl mb-2">${Number(p.precio).toLocaleString()}</div>
-                {/* Mostrar estado de stock */}
-                {p.stock !== undefined && (
-                  <div className={`text-sm font-bold mb-2 ${p.stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {p.stock > 0 ? `Stock: ${p.stock}` : 'Sin stock'}
-                  </div>
-                )}
-                {!adminMode && (
-                  <div className="flex-grow flex flex-col justify-end w-full">
-                    {p.stock && p.stock > 0 ? (
-                      <button
-                        className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 rounded-lg transition mt-4"
-                        onClick={() => dispatch(addToCart({ ...p, cantidad: 1 }))}
-                      >
-                        Agregar al carrito
-                      </button>
-                    ) : (
-                      <button
-                        className="w-full bg-gray-400 text-white font-bold py-2 rounded-lg cursor-not-allowed"
-                        disabled
-                      >
-                        Sin stock
-                      </button>
+                
+                {/* Imagen del producto */}
+                <div className="w-full h-32 flex items-center justify-center mb-4">
+                  <img
+                    src={p.imagen || "/logo.png"}
+                    alt={p.nombre}
+                    className="w-full h-full object-contain rounded-lg bg-white/20 p-2"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = "/logo.png";
+                    }}
+                  />
+                </div>
+                
+                {/* Información del producto */}
+                <div className="flex-1 flex flex-col justify-between w-full">
+                  <div>
+                    <h3 className="text-lg font-bold text-white mb-2 line-clamp-2">{p.nombre}</h3>
+                    <p className="text-blue-100 text-sm mb-3 line-clamp-2">{p.descripcion}</p>
+                    
+                    {/* Categorías */}
+                    <div className="text-xs text-blue-200 mb-3">
+                      <div>Categoría: {p.categoria || <span className="italic">Sin categoría</span>}</div>
+                      <div>Subcategoría: {p.subcategoria || <span className="italic">Sin subcategoría</span>}</div>
+                    </div>
+                    
+                    {/* Precio */}
+                    <div className="text-2xl font-extrabold text-white mb-3">
+                      ${Number(p.precio).toLocaleString()}
+                    </div>
+                    
+                    {/* Estado de stock */}
+                    {p.stock !== undefined && (
+                      <div className={`text-sm font-bold mb-3 px-3 py-1 rounded-full inline-block ${
+                        p.stock > 0 
+                          ? 'bg-green-500/20 text-green-300 border border-green-400/30' 
+                          : 'bg-red-500/20 text-red-300 border border-red-400/30'
+                      }`}>
+                        {p.stock > 0 ? `Stock: ${p.stock}` : 'Sin stock'}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
+                  
+                  {/* Botón de acción */}
+                  {!adminMode && (
+                    <div className="w-full">
+                      {p.stock && p.stock > 0 ? (
+                        <button
+                          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                          onClick={() => dispatch(addToCart({ ...p, cantidad: 1 }))}
+                        >
+                          Agregar al carrito
+                        </button>
+                      ) : (
+                        <button
+                          className="w-full bg-gray-500/50 text-gray-300 font-bold py-3 px-6 rounded-xl cursor-not-allowed"
+                          disabled
+                        >
+                          Sin stock
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
             ))
           )}
         </div>
+        
         {/* Paginación */}
         {totalPages > 1 && (
-          <div className="flex justify-center mt-10 gap-2">
+          <div className="flex justify-center mt-12 gap-2">
             <button
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-blue-200 text-blue-700 font-bold shadow hover:bg-blue-300 transition disabled:opacity-50"
+              className="w-12 h-12 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white font-bold shadow-lg backdrop-blur-sm transition-all duration-300 disabled:opacity-50"
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
               aria-label="Anterior"
@@ -510,7 +702,11 @@ export default function Productos({ productos: productosProp, adminMode }) {
             {[...Array(totalPages)].map((_, i) => (
               <button
                 key={i}
-                className={`w-10 h-10 flex items-center justify-center rounded-full font-bold shadow transition-all duration-150 ${currentPage === i + 1 ? "bg-blue-700 text-white scale-110" : "bg-blue-100 text-blue-700 hover:bg-blue-300"}`}
+                className={`w-12 h-12 flex items-center justify-center rounded-full font-bold shadow-lg backdrop-blur-sm transition-all duration-300 ${
+                  currentPage === i + 1 
+                    ? "bg-white text-blue-700 scale-110" 
+                    : "bg-white/10 text-white hover:bg-white/20"
+                }`}
                 onClick={() => setCurrentPage(i + 1)}
                 aria-label={`Página ${i + 1}`}
               >
@@ -518,7 +714,7 @@ export default function Productos({ productos: productosProp, adminMode }) {
               </button>
             ))}
             <button
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-blue-200 text-blue-700 font-bold shadow hover:bg-blue-300 transition disabled:opacity-50"
+              className="w-12 h-12 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white font-bold shadow-lg backdrop-blur-sm transition-all duration-300 disabled:opacity-50"
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
               aria-label="Siguiente"

@@ -6,6 +6,52 @@ import AdminOrders from "./AdminOrders";
 
 const PAGE_SIZE = 6;
 
+// Componente para mostrar estadísticas de categorías
+function CategoriasStats({ productos }) {
+  const stats = React.useMemo(() => {
+    const categoriasMap = new Map();
+    
+    productos.forEach(producto => {
+      const categoria = producto.categoria || "Sin categoría";
+      if (!categoriasMap.has(categoria)) {
+        categoriasMap.set(categoria, {
+          nombre: categoria,
+          cantidad: 0,
+          stockTotal: 0
+        });
+      }
+      
+      const cat = categoriasMap.get(categoria);
+      cat.cantidad++;
+      cat.stockTotal += producto.stock || 0;
+    });
+    
+    return Array.from(categoriasMap.values()).sort((a, b) => b.cantidad - a.cantidad);
+  }, [productos]);
+
+  if (stats.length === 0) return null;
+
+  return (
+    <div className="bg-white/90 shadow-xl rounded-2xl p-6 border border-blue-100 mb-6">
+      <h3 className="text-lg font-bold mb-4 text-blue-800">Estadísticas de Categorías</h3>
+      <div className="space-y-3">
+        {stats.map((cat, index) => (
+          <div key={cat.nombre} className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+            <div>
+              <div className="font-semibold text-blue-900">{cat.nombre}</div>
+              <div className="text-sm text-blue-600">{cat.cantidad} producto{cat.cantidad !== 1 ? 's' : ''}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-gray-600">Stock total</div>
+              <div className="font-bold text-green-600">{cat.stockTotal}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminHome() {
   const [token, setToken] = useState(localStorage.getItem("adminToken") || "");
   const [productos, setProductos] = useState([]);
@@ -72,8 +118,9 @@ export default function AdminHome() {
             </section>
           </div>
           <div className="w-full md:w-[400px] flex flex-col items-center">
+            <CategoriasStats productos={productos} />
             <div className="bg-white/90 shadow-2xl rounded-3xl p-8 md:p-10 w-full border border-blue-100">
-              <AdminPanel token={token} onProductoAgregado={handleProductoAgregado} setProductos={setProductos} productos={productos} />
+              <AdminPanel token={token} onProductoAgregado={handleProductoAgregado} setProductos={setProductos} productosExistentes={productos} />
             </div>
           </div>
         </div>
