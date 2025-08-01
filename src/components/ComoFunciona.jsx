@@ -40,7 +40,7 @@ const pasos = [
 ];
 
 const ComoFunciona = () => (
-  <section className="py-20 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white text-center">
+  <section className="py-20 bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 text-white text-center">
     <h2 className="text-4xl font-extrabold mb-12">¿Cómo funciona?</h2>
     <div className="flex flex-col md:flex-row justify-center gap-12 max-w-6xl mx-auto">
       {pasos.map((paso, i) => (

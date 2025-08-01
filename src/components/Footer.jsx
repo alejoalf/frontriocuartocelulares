@@ -17,7 +17,7 @@ const secciones = [
 ];
 
 const Footer = () => (
-  <footer className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-cyan-100 pt-14 pb-8 px-4 mt-8">
+  <footer className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 text-cyan-100 pt-14 pb-8 px-4 mt-8">
     <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:justify-between md:items-center gap-12 md:gap-24">
       {/* Logo y contacto */}
       <div className="flex-1 flex flex-col items-center md:items-start gap-6">

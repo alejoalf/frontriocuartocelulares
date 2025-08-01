@@ -54,11 +54,11 @@ export default function Categorias({ onCategoriaClick, categoriaSeleccionada, pr
   const categorias = generarCategorias(productos);
 
   return (
-    <section className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-16">
+    <section className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 text-white py-16">
       <div className="max-w-7xl mx-auto px-4">
         {/* Título */}
         <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
+          <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">
             Categorías
           </h2>
           <p className="text-gray-300 text-lg max-w-2xl mx-auto">
