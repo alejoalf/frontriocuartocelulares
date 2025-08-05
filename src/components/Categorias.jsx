@@ -149,7 +149,7 @@ export default function Categorias({ onCategoriaClick, categoriaSeleccionada, pr
           <button
             onClick={() => onCategoriaClick("")}
             className={`inline-flex items-center gap-2 px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 ${
-              categoriaSeleccionada === "" 
+              categoriaSeleccionada === "Todos los productos" 
                 ? "bg-red-500 text-white shadow-lg shadow-red-500/50" 
                 : "bg-white/10 text-white hover:bg-white/20 backdrop-blur-sm"
             }`}

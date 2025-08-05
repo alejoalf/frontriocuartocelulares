@@ -7,7 +7,7 @@ const Particles = () => {
   }
   const particles = Array.from({ length: 40 }, (_, i) => i);
   return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden hidden md:block">
       {particles.map((i) => (
         <motion.div
           key={i}

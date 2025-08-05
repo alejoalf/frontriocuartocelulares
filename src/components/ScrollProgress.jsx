@@ -3,11 +3,25 @@ import { motion, useScroll, useSpring } from "framer-motion";
 
 const ScrollProgress = () => {
   const { scrollYProgress } = useScroll();
+  const [isDesktop, setIsDesktop] = useState(false);
   const scaleX = useSpring(scrollYProgress, {
     stiffness: 100,
     damping: 30,
     restDelta: 0.001
   });
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsDesktop(window.innerWidth >= 768);
+    };
+    
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  if (!isDesktop) return null;
 
   return (
     <motion.div

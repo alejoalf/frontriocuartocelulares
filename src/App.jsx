@@ -57,40 +57,44 @@ function MainContent() {
         <Header />
       </div>
       <motion.section
-        initial={{ opacity: 0, y: 40 }}
+        initial={{ opacity: 1, y: 0 }}
         whileInView={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 40 }}
+        exit={{ opacity: 1, y: 0 }}
         viewport={{ once: false, amount: 0.3 }}
-        transition={{ duration: 0.6, type: "spring", stiffness: 100, damping: 24 }}
+        transition={{ duration: 0.1 }}
+        className="md:animate-none"
       >
         <Servicios />
       </motion.section>
       <motion.section
-        initial={{ opacity: 0, y: 40 }}
+        initial={{ opacity: 1, y: 0 }}
         whileInView={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 0 }}
+        exit={{ opacity: 1, y: 0 }}
         viewport={{ once: false, amount: 0.3 }}
-        transition={{ duration: 0.6, type: "spring", stiffness: 100, damping: 24 }}
+        transition={{ duration: 0.1 }}
+        className="md:animate-none"
       >
         <Productos />
       </motion.section>
       <motion.section
-        initial={{ opacity: 0, y: 40 }}
+        initial={{ opacity: 1, y: 0 }}
         whileInView={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 40 }}
+        exit={{ opacity: 1, y: 0 }}
         viewport={{ once: false, amount: 0.3 }}
-        transition={{ duration: 0.6, type: "spring", stiffness: 100, damping: 24 }}
+        transition={{ duration: 0.1 }}
+        className="md:animate-none"
       >
         <div id="galeria">
           <Galeria />
         </div>
       </motion.section>
       <motion.section
-        initial={{ opacity: 0, y: 40 }}
+        initial={{ opacity: 1, y: 0 }}
         whileInView={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 40 }}
+        exit={{ opacity: 1, y: 0 }}
         viewport={{ once: false, amount: 0.3 }}
-        transition={{ duration: 0.6, type: "spring", stiffness: 100, damping: 24 }}
+        transition={{ duration: 0.1 }}
+        className="md:animate-none"
       >
         <ComoFunciona />
       </motion.section>

@@ -7,9 +7,10 @@ import CartDrawer from "./CartDrawer";
 const links = [
   { name: "Inicio", href: "#inicio" },
   { name: "Servicios", href: "#servicios" },
+  { name: "Productos", href: "#categorias" },
   { name: "Galería", href: "#galeria" },
+  { name: "Como Funciona", href: "#comofunciona" },
   // { name: "Testimonios", href: "#testimonios" }, // Oculto temporalmente
-  { name: "Ubicación", href: "#ubicacion" },
   { name: "Contacto", href: "#contacto" },
 ];
 

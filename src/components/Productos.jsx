@@ -211,7 +211,6 @@ export default function Productos({ productos: productosProp, adminMode }) {
 
     // Escuchar actualizaciones de stock
     socket.on('stock-updated', (data) => {
-      console.log('Stock actualizado:', data);
       dispatch(updateProductoStock(data));
       
       // Actualizar también el estado local
@@ -226,7 +225,6 @@ export default function Productos({ productos: productosProp, adminMode }) {
 
     // Escuchar eliminación de productos
     socket.on('producto-eliminado', (data) => {
-      console.log('Producto eliminado:', data);
       dispatch(removeProducto(data.productoId));
       
       // Actualizar también el estado local
@@ -259,7 +257,10 @@ export default function Productos({ productos: productosProp, adminMode }) {
           dispatch(setProductos(data));
           setLoading(false);
         })
-        .catch(() => setLoading(false));
+        .catch((error) => {
+          console.error('Error cargando productos:', error);
+          setLoading(false);
+        });
     }
   }, [productosProp, dispatch]);
 
@@ -275,19 +276,21 @@ export default function Productos({ productos: productosProp, adminMode }) {
     setSubcat("");
   }, [cat]);
 
-  // Filtrado
-  const productosFiltrados = React.useMemo(() =>
-    productos.filter(p => {
+  // Filtrado de productos - Lógica simple y robusta
+  const productosFiltrados = React.useMemo(() => {
+    return productos.filter(p => {
       const matchBusqueda =
         p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
         (p.descripcion && p.descripcion.toLowerCase().includes(busqueda.toLowerCase()));
-      const matchCategoria = !cat || p.categoria === cat;
+
+      // Si cat está vacío, mostrar todos los productos
+      const matchCategoria = !cat || cat === "" || p.categoria === cat;
       const matchSubcat = !subcat || p.subcategoria === subcat;
-      const tieneStock = adminMode || (p.stock && p.stock > 0); // Solo mostrar productos con stock en vista pública, pero mostrar todos en admin
+      const tieneStock = adminMode || (p.stock && p.stock > 0);
+
       return matchBusqueda && matchCategoria && matchSubcat && tieneStock;
-    }),
-    [productos, busqueda, cat, subcat, adminMode]
-  );
+    });
+  }, [productos, busqueda, cat, subcat, adminMode]);
 
   // Paginación después del filtrado
   const totalPages = Math.ceil(productosFiltrados.length / PAGE_SIZE) || 1;
@@ -296,7 +299,9 @@ export default function Productos({ productos: productosProp, adminMode }) {
 
   // Manejar clic en categoría
   const handleCategoriaClick = (categoria) => {
-    setCategoriaSeleccionada(categoria);
+    // Si es "Ver todos los productos" (categoria vacía), establecer un título descriptivo
+    const categoriaDisplay = categoria === "" ? "Todos los productos" : categoria;
+    setCategoriaSeleccionada(categoriaDisplay);
     setCat(categoria);
     setSubcat("");
     setBusqueda("");
@@ -500,37 +505,293 @@ export default function Productos({ productos: productosProp, adminMode }) {
     );
   }
 
-  // Vista de productos filtrados
+  // Vista de productos filtrados - Siempre mostrar algo si no es admin
+  if (!adminMode) {
+    return (
+      <motion.section 
+        className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 text-white w-full min-h-screen productos-section"
+        initial={{ opacity: 1 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+      >
+        <div className="w-full max-w-7xl mx-auto px-4 py-8">
+          <ConfirmModal open={modalOpen} onClose={() => setModalOpen(false)} onConfirm={handleDelete} producto={productoAEliminar} />
+          <EditModal open={editModalOpen} onClose={() => setEditModalOpen(false)} onSave={handleEdit} producto={productoAEditar} productosExistentes={productos} />
+          
+            {/* Botón flotante para volver a categorías en móviles */}
+            <button
+              onClick={handleVolverCategorias}
+              className="fixed bottom-6 left-6 z-50 md:hidden bg-red-500 hover:bg-red-600 text-white p-4 rounded-full shadow-2xl border-2 border-white/20 backdrop-blur-sm transition-all duration-300 animate-pulse"
+              title="Volver a categorías"
+            >
+              <FaTimes className="w-6 h-6" />
+            </button>
+          
+          {/* Header con navegación */}
+          <div className="mb-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                {/* Botón volver a categorías - Mejorado para móviles */}
+              <button
+                onClick={handleVolverCategorias}
+                  className="inline-flex items-center gap-2 px-4 md:px-6 py-3 bg-white/20 hover:bg-white/30 text-white font-semibold rounded-full transition-all duration-300 backdrop-blur-sm shadow-lg border border-white/30 hover:border-white/50"
+              >
+                <FaTimes className="w-4 h-4" />
+                  <span className="hidden sm:inline">Volver a categorías</span>
+                  <span className="sm:hidden">Categorías</span>
+              </button>
+              
+              {/* Título de la categoría seleccionada */}
+              {categoriaSeleccionada && (
+                <div className="text-center">
+                    <h2 className="text-2xl md:text-3xl font-bold text-white">
+                    {categoriaSeleccionada}
+                  </h2>
+                  <p className="text-blue-100 mt-1">
+                    {productosFiltrados.length} productos encontrados
+                  </p>
+                    {categoriaSeleccionada === "Todos los productos" && (
+                      <p className="text-blue-200 text-sm mt-2">
+                        Mostrando todos los productos disponibles
+                      </p>
+                    )}
+                </div>
+              )}
+              
+              {/* Búsqueda */}
+              <div className="relative max-w-md w-full">
+                <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-300 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Buscar productos..."
+                  value={busqueda}
+                  onChange={e => setBusqueda(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-white placeholder-blue-200 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                />
+              </div>
+            </div>
+            
+            {/* Filtros de subcategorías */}
+            {cat && subcategorias.length > 1 && (
+              <div className="flex flex-wrap justify-center gap-3 mb-8">
+                <button
+                  className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 ${
+                    subcat === "" 
+                      ? "bg-white text-blue-700 shadow-lg" 
+                      : "bg-white/10 text-white hover:bg-white/20 backdrop-blur-sm"
+                  }`}
+                  onClick={() => setSubcat("")}
+                >
+                  Todas las subcategorías
+                </button>
+                {subcategorias.map(s => (
+                  <button
+                    key={s}
+                    className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 ${
+                      subcat === s 
+                        ? "bg-white text-blue-700 shadow-lg" 
+                        : "bg-white/10 text-white hover:bg-white/20 backdrop-blur-sm"
+                    }`}
+                    onClick={() => setSubcat(s)}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Grid de productos */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8 justify-items-center w-full min-h-[400px]">
+            {productosPagina.length === 0 ? (
+              <div className="col-span-full text-center py-16">
+                <div className="text-blue-200 text-xl font-semibold mb-4">
+                  {busqueda ? "No se encontraron productos con esa búsqueda." : "No hay productos disponibles en esta categoría."}
+                </div>
+                {busqueda && (
+                  <button
+                    onClick={() => setBusqueda("")}
+                    className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-full transition-all duration-300"
+                  >
+                    Limpiar búsqueda
+                  </button>
+                )}
+              </div>
+            ) : (
+              productosPagina.map(p => (
+                <motion.div
+                  key={p.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="group flex flex-col items-center bg-white/10 backdrop-blur-sm rounded-2xl shadow-2xl border border-white/20 hover:shadow-3xl hover:-translate-y-2 transition-all duration-300 p-6 text-center h-[420px] w-full max-w-[280px] justify-between relative overflow-hidden"
+                >
+                  {/* Acciones admin */}
+                  {adminMode && (
+                    <div className="absolute top-2 right-2 flex gap-2 z-10">
+                      <button 
+                        className="p-2 rounded-full bg-blue-500/80 hover:bg-blue-600 text-white shadow-lg backdrop-blur-sm" 
+                        onClick={() => { setProductoAEditar(p); setEditModalOpen(true); }}
+                      >
+                        <FaEdit size={14} />
+                      </button>
+                      <button 
+                        className="p-2 rounded-full bg-red-500/80 hover:bg-red-600 text-white shadow-lg backdrop-blur-sm" 
+                        onClick={() => { setProductoAEliminar(p); setModalOpen(true); }}
+                      >
+                        <FaTrash size={14} />
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Imagen del producto */}
+                  <div className="w-full h-32 flex items-center justify-center mb-4">
+                    <img
+                      src={p.imagen || "/logo.png"}
+                      alt={p.nombre}
+                      className="w-full h-full object-contain rounded-lg bg-white/20 p-2"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = "/logo.png";
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Información del producto */}
+                  <div className="flex-1 flex flex-col justify-between w-full">
+                    <div>
+                      <h3 className="text-lg font-bold text-white mb-2 line-clamp-2">{p.nombre}</h3>
+                      <p className="text-blue-100 text-sm mb-3 line-clamp-2">{p.descripcion}</p>
+                      
+                      {/* Categorías */}
+                      <div className="text-xs text-blue-200 mb-3">
+                        <div>Categoría: {p.categoria || <span className="italic">Sin categoría</span>}</div>
+                        <div>Subcategoría: {p.subcategoria || <span className="italic">Sin subcategoría</span>}</div>
+                      </div>
+                      
+                      {/* Precio */}
+                      <div className="text-2xl font-extrabold text-white mb-3">
+                        ${Number(p.precio).toLocaleString()}
+                      </div>
+                      
+                      {/* Estado de stock */}
+                      {p.stock !== undefined && (
+                        <div className={`text-sm font-bold mb-3 px-3 py-1 rounded-full inline-block ${
+                          p.stock > 0 
+                            ? 'bg-green-500/20 text-green-300 border border-green-400/30' 
+                            : 'bg-red-500/20 text-red-300 border border-red-400/30'
+                        }`}>
+                          {p.stock > 0 ? `Stock: ${p.stock}` : 'Sin stock'}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Botón de acción */}
+                    {!adminMode && (
+                      <div className="w-full">
+                        {p.stock && p.stock > 0 ? (
+                          <button
+                            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                            onClick={() => dispatch(addToCart({ ...p, cantidad: 1 }))}
+                          >
+                            Agregar al carrito
+                          </button>
+                        ) : (
+                          <button
+                            className="w-full bg-gray-500/50 text-gray-300 font-bold py-3 px-6 rounded-xl cursor-not-allowed"
+                            disabled
+                          >
+                            Sin stock
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </div>
+          
+          {/* Paginación */}
+          {totalPages > 1 && (
+            <div className="flex justify-center mt-12 gap-2">
+              <button
+                className="w-12 h-12 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white font-bold shadow-lg backdrop-blur-sm transition-all duration-300 disabled:opacity-50"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                aria-label="Anterior"
+              >
+                &#8592;
+              </button>
+              {[...Array(totalPages)].map((_, i) => (
+                <button
+                  key={i}
+                  className={`w-12 h-12 flex items-center justify-center rounded-full font-bold shadow-lg backdrop-blur-sm transition-all duration-300 ${
+                    currentPage === i + 1 
+                      ? "bg-white text-blue-700 scale-110" 
+                      : "bg-white/10 text-white hover:bg-white/20"
+                  }`}
+                  onClick={() => setCurrentPage(i + 1)}
+                  aria-label={`Página ${i + 1}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button
+                className="w-12 h-12 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white font-bold shadow-lg backdrop-blur-sm transition-all duration-300 disabled:opacity-50"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                aria-label="Siguiente"
+              >
+                &#8594;
+              </button>
+            </div>
+          )}
+        </div>
+      </motion.section>
+    );
+  }
+
+  // Vista de admin (si es admin mode)
   return (
-    <section className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 text-white w-full min-h-screen">
+    <motion.section 
+      className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 text-white w-full min-h-screen productos-section"
+      initial={{ opacity: 1 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
       <div className="w-full max-w-7xl mx-auto px-4 py-8">
         <ConfirmModal open={modalOpen} onClose={() => setModalOpen(false)} onConfirm={handleDelete} producto={productoAEliminar} />
         <EditModal open={editModalOpen} onClose={() => setEditModalOpen(false)} onSave={handleEdit} producto={productoAEditar} productosExistentes={productos} />
         
-        {msg && <div className="text-green-400 text-center font-semibold mb-4 bg-green-900/20 p-3 rounded-lg">{msg}</div>}
-        {error && <div className="text-red-400 text-center font-semibold mb-4 bg-red-900/20 p-3 rounded-lg">{error}</div>}
-        
         {/* Header con navegación */}
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-            {/* Botón volver a categorías */}
+            {/* Botón volver a categorías - Mejorado para móviles */}
             <button
               onClick={handleVolverCategorias}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-full transition-all duration-300 backdrop-blur-sm"
+              className="inline-flex items-center gap-2 px-4 md:px-6 py-3 bg-white/20 hover:bg-white/30 text-white font-semibold rounded-full transition-all duration-300 backdrop-blur-sm shadow-lg border border-white/30 hover:border-white/50"
             >
               <FaTimes className="w-4 h-4" />
-              Volver a categorías
+              <span className="hidden sm:inline">Volver a categorías</span>
+              <span className="sm:hidden">Categorías</span>
             </button>
             
             {/* Título de la categoría seleccionada */}
             {categoriaSeleccionada && (
               <div className="text-center">
-                <h2 className="text-3xl font-bold text-white">
+                <h2 className="text-2xl md:text-3xl font-bold text-white">
                   {categoriaSeleccionada}
                 </h2>
                 <p className="text-blue-100 mt-1">
                   {productosFiltrados.length} productos encontrados
                 </p>
+                {categoriaSeleccionada === "Todos los productos" && (
+                  <p className="text-blue-200 text-sm mt-2">
+                    Mostrando todos los productos disponibles
+                  </p>
+                )}
               </div>
             )}
             
@@ -724,6 +985,6 @@ export default function Productos({ productos: productosProp, adminMode }) {
           </div>
         )}
       </div>
-    </section>
+    </motion.section>
   );
 }
