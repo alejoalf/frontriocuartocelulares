@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { FaUpload, FaImage, FaTimes, FaSpinner } from "react-icons/fa";
 
 export default function AdminPanel({ token, onProductoAgregado, setProductos, productosExistentes = [] }) {
   const [form, setForm] = useState({
@@ -14,6 +15,9 @@ export default function AdminPanel({ token, onProductoAgregado, setProductos, pr
   const [error, setError] = useState("");
   const [showCategoriaSuggestions, setShowCategoriaSuggestions] = useState(false);
   const [showSubcategoriaSuggestions, setShowSubcategoriaSuggestions] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
 
   // Generar categorías dinámicamente basadas en productos existentes
   const categoriasExistentes = useMemo(() => {
@@ -46,6 +50,77 @@ export default function AdminPanel({ token, onProductoAgregado, setProductos, pr
     });
   };
 
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validar tipo de archivo
+      if (!file.type.startsWith('image/')) {
+        setError('Solo se permiten archivos de imagen');
+        return;
+      }
+      
+      // Validar tamaño (5MB máximo)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('La imagen debe ser menor a 5MB');
+        return;
+      }
+
+      setSelectedFile(file);
+      setError('');
+      
+      // Crear preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUploadImage = async () => {
+    if (!selectedFile) {
+      setError('Selecciona una imagen primero');
+      return;
+    }
+
+    setUploadingImage(true);
+    setError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('image', selectedFile);
+
+      const response = await fetch('https://backriocuartocelulares.onrender.com/api/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setForm(prev => ({ ...prev, imagen: data.url }));
+        setMsg('Imagen subida correctamente');
+        setSelectedFile(null);
+        setImagePreview('');
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Error al subir la imagen');
+      }
+    } catch (err) {
+      setError('Error de conexión al subir la imagen');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const clearImage = () => {
+    setSelectedFile(null);
+    setImagePreview('');
+    setForm(prev => ({ ...prev, imagen: '' }));
+  };
+
   const handleSubmit = async e => {
     e.preventDefault();
     setMsg("");
@@ -75,6 +150,8 @@ export default function AdminPanel({ token, onProductoAgregado, setProductos, pr
       const productoCreado = await res.json();
       setMsg("Producto agregado correctamente");
       setForm({ nombre: "", descripcion: "", precio: "", imagen: "", stock: "", categoria: "", subcategoria: "" });
+      setSelectedFile(null);
+      setImagePreview('');
       if (onProductoAgregado) onProductoAgregado(productoCreado);
     } else {
       const errorData = await res.json().catch(() => ({}));
@@ -189,13 +266,104 @@ export default function AdminPanel({ token, onProductoAgregado, setProductos, pr
         min="0"
       />
       
-      <input 
-        name="imagen" 
-        placeholder="URL de imagen" 
-        value={form.imagen} 
-        onChange={handleChange} 
-        className="mb-2 w-full p-2 border rounded" 
-      />
+      {/* Sección de imagen mejorada */}
+      <div className="space-y-2">
+        <label className="block text-sm font-semibold mb-1">Imagen del producto</label>
+        
+        {/* URL de imagen */}
+        <input 
+          name="imagen" 
+          placeholder="URL de imagen (opcional)" 
+          value={form.imagen} 
+          onChange={handleChange} 
+          className="mb-2 w-full p-2 border rounded" 
+        />
+        
+        {/* O separador */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-px bg-gray-300"></div>
+          <span className="text-xs text-gray-500">O</span>
+          <div className="flex-1 h-px bg-gray-300"></div>
+        </div>
+        
+        {/* Subida de archivo */}
+        <div className="space-y-2">
+          <input 
+            type="file" 
+            accept="image/*"
+            onChange={handleFileSelect}
+            className="hidden"
+            id="image-upload"
+          />
+          <label 
+            htmlFor="image-upload" 
+            className="flex items-center gap-2 p-2 border-2 border-dashed border-gray-300 rounded cursor-pointer hover:border-blue-400 transition-colors"
+          >
+            <FaUpload className="text-gray-400" />
+            <span className="text-sm text-gray-600">
+              {selectedFile ? selectedFile.name : "Seleccionar imagen local"}
+            </span>
+          </label>
+          
+          {/* Preview de imagen */}
+          {imagePreview && (
+            <div className="relative">
+              <img 
+                src={imagePreview} 
+                alt="Preview" 
+                className="w-full h-32 object-cover rounded border"
+              />
+              <button
+                type="button"
+                onClick={clearImage}
+                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+              >
+                <FaTimes size={12} />
+              </button>
+            </div>
+          )}
+          
+          {/* Botón para subir */}
+          {selectedFile && (
+            <button
+              type="button"
+              onClick={handleUploadImage}
+              disabled={uploadingImage}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {uploadingImage ? (
+                <>
+                  <FaSpinner className="animate-spin" />
+                  Subiendo...
+                </>
+              ) : (
+                <>
+                  <FaImage />
+                  Subir imagen
+                </>
+              )}
+            </button>
+          )}
+        </div>
+        
+        {/* Mostrar imagen actual si existe */}
+        {form.imagen && !imagePreview && (
+          <div className="relative">
+            <img 
+              src={form.imagen} 
+              alt="Imagen actual" 
+              className="w-full h-32 object-cover rounded border"
+            />
+            <button
+              type="button"
+              onClick={() => setForm(prev => ({ ...prev, imagen: '' }))}
+              className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+            >
+              <FaTimes size={12} />
+            </button>
+          </div>
+        )}
+      </div>
       
       <input 
         name="stock" 
