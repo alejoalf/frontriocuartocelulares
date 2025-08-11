@@ -74,7 +74,9 @@ function MainContent() {
         transition={{ duration: 0.1 }}
         className="md:animate-none"
       >
-        <Productos />
+        <div id="categorias">
+          <Productos />
+        </div>
       </motion.section>
       <motion.section
         initial={{ opacity: 1, y: 0 }}
@@ -96,7 +98,9 @@ function MainContent() {
         transition={{ duration: 0.1 }}
         className="md:animate-none"
       >
-        <ComoFunciona />
+        <div id="comofunciona">
+          <ComoFunciona />
+        </div>
       </motion.section>
       {/*
       <motion.section
