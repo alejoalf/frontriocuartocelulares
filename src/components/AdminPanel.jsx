@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { FaUpload, FaImage, FaTimes, FaSpinner } from "react-icons/fa";
+import { supabase } from "../config/supabaseClient";
 
-export default function AdminPanel({ token, onProductoAgregado, setProductos, productosExistentes = [] }) {
+export default function AdminPanel({ onProductoAgregado, productosExistentes = [] }) {
   const [form, setForm] = useState({
     nombre: "",
     descripcion: "",
@@ -52,29 +53,27 @@ export default function AdminPanel({ token, onProductoAgregado, setProductos, pr
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      // Validar tipo de archivo
-      if (!file.type.startsWith('image/')) {
-        setError('Solo se permiten archivos de imagen');
-        return;
-      }
-      
-      // Validar tamaño (5MB máximo)
-      if (file.size > 5 * 1024 * 1024) {
-        setError('La imagen debe ser menor a 5MB');
-        return;
-      }
+    if (!file) return;
 
-      setSelectedFile(file);
-      setError('');
-      
-      // Crear preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target.result);
-      };
-      reader.readAsDataURL(file);
+    if (!file.type.startsWith('image/')) {
+      setError('Solo se permiten archivos de imagen');
+      return;
     }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('La imagen debe ser menor a 5MB');
+      return;
+    }
+
+    setSelectedFile(file);
+    setError('');
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = typeof event.target?.result === 'string' ? event.target.result : '';
+      setImagePreview(result);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleUploadImage = async () => {
@@ -87,29 +86,34 @@ export default function AdminPanel({ token, onProductoAgregado, setProductos, pr
     setError('');
 
     try {
-      const formData = new FormData();
-      formData.append('image', selectedFile);
+      const fileExt = selectedFile.name.split('.').pop() ?? 'jpg';
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+      const filePath = `uploads/${fileName}`;
 
-      const response = await fetch('https://backriocuartocelulares.onrender.com/api/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
+      const { data: uploadData, error: uploadError } = await supabase
+        .storage
+        .from('productos')
+        .upload(filePath, selectedFile, {
+          contentType: selectedFile.type,
+          upsert: false
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        setForm(prev => ({ ...prev, imagen: data.url }));
-        setMsg('Imagen subida correctamente');
-        setSelectedFile(null);
-        setImagePreview('');
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Error al subir la imagen');
+      if (uploadError) {
+        throw uploadError;
       }
+
+      const { data: publicData } = supabase
+        .storage
+        .from('productos')
+        .getPublicUrl(uploadData.path);
+
+      setForm(prev => ({ ...prev, imagen: publicData.publicUrl }));
+      setMsg('Imagen subida correctamente');
+      setSelectedFile(null);
+      setImagePreview('');
     } catch (err) {
-      setError('Error de conexión al subir la imagen');
+      console.error('Error subiendo imagen:', err);
+      setError('Error al subir la imagen');
     } finally {
       setUploadingImage(false);
     }
@@ -125,8 +129,7 @@ export default function AdminPanel({ token, onProductoAgregado, setProductos, pr
     e.preventDefault();
     setMsg("");
     setError("");
-    
-    // Validación manual
+
     if (!form.categoria || !form.subcategoria) {
       setError("Selecciona una categoría y subcategoría");
       return;
@@ -135,33 +138,47 @@ export default function AdminPanel({ token, onProductoAgregado, setProductos, pr
       setError("Completa nombre y precio");
       return;
     }
-    
-    // Enviar producto
-    const res = await fetch("https://backriocuartocelulares.onrender.com/api/productos", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + token
-      },
-      body: JSON.stringify(form)
-    });
-    
-    if (res.ok) {
-      const productoCreado = await res.json();
+
+    const precioNumber = Number(form.precio);
+    if (Number.isNaN(precioNumber) || precioNumber <= 0) {
+      setError("Precio inválido");
+      return;
+    }
+    const stockNumber = form.stock === "" ? 0 : Number(form.stock);
+    if (Number.isNaN(stockNumber) || stockNumber < 0) {
+      setError("Stock inválido");
+      return;
+    }
+
+    const payload = {
+      nombre: form.nombre,
+      descripcion: form.descripcion || null,
+      precio: precioNumber,
+      imagen: form.imagen || null,
+      stock: stockNumber,
+      categoria: form.categoria,
+      subcategoria: form.subcategoria
+    };
+
+    try {
+      const { data, error: insertError } = await supabase
+        .from('productos')
+        .insert(payload)
+        .select('*')
+        .single();
+
+      if (insertError) {
+        throw insertError;
+      }
+
       setMsg("Producto agregado correctamente");
       setForm({ nombre: "", descripcion: "", precio: "", imagen: "", stock: "", categoria: "", subcategoria: "" });
       setSelectedFile(null);
       setImagePreview('');
-      if (onProductoAgregado) onProductoAgregado(productoCreado);
-    } else {
-      const errorData = await res.json().catch(() => ({}));
-      if (res.status === 401) {
-        // Logout automático
-        localStorage.removeItem("adminToken");
-        window.location.reload();
-      } else {
-        setError(errorData.error || "Error al agregar producto");
-      }
+      onProductoAgregado?.(data);
+    } catch (err) {
+      console.error('Error agregando producto:', err);
+      setError("Error al agregar producto");
     }
   };
 

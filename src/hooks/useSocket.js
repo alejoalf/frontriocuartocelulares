@@ -1,22 +1,30 @@
 import { useEffect, useRef } from 'react';
-import io from 'socket.io-client';
+import { supabase } from '../config/supabaseClient';
 
-const SOCKET_URL = 'https://backriocuartocelulares.onrender.com';
-
-export const useSocket = () => {
-  const socketRef = useRef();
+export const useProductosChannel = (handlers = {}) => {
+  const channelRef = useRef(null);
 
   useEffect(() => {
-    // Crear conexión
-    socketRef.current = io(SOCKET_URL);
+    const channel = supabase
+      .channel('productos-hook')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'productos' }, payload => {
+        handlers.onInsert?.(payload.new);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'productos' }, payload => {
+        handlers.onUpdate?.(payload.new, payload.old);
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'productos' }, payload => {
+        handlers.onDelete?.(payload.old);
+      })
+      .subscribe();
 
-    // Limpiar al desmontar
+    channelRef.current = channel;
+
     return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
+      supabase.removeChannel(channel);
+      channelRef.current = null;
     };
-  }, []);
+  }, [handlers]);
 
-  return socketRef.current;
-}; 
+  return channelRef.current;
+};

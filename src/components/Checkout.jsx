@@ -4,6 +4,7 @@ import { clearCart } from "../store/cartSlice";
 import { useNavigate } from "react-router-dom";
 import { FaUser, FaMapMarkerAlt, FaCheckCircle, FaArrowRight, FaArrowLeft, FaShoppingCart, FaEnvelope, FaPhone, FaHome, FaWhatsapp, FaBoxOpen, FaExclamationTriangle } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "../config/supabaseClient";
 
 const validateEmail = email => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const validateTelefono = tel => /^\d{8,}$/.test(tel.replace(/\D/g, ""));
@@ -119,26 +120,24 @@ export default function Checkout() {
     }
     setLoading(true);
     try {
-      const res = await fetch("https://backriocuartocelulares.onrender.com/api/ordenes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, total, items })
+      const { data, error: orderError } = await supabase.functions.invoke('create-order', {
+        body: { ...form, total, items }
       });
-      if (res.ok) {
+      if (orderError) {
+        setError(orderError.message || "Error al procesar la orden");
+      } else if (data?.error) {
+        setError(data.error);
+      } else {
         setSuccess(true);
         dispatch(clearCart());
-        // Limpiar localStorage
         localStorage.removeItem("checkoutForm");
         localStorage.removeItem("checkoutItems");
         localStorage.removeItem("checkoutTotal");
-        // Limpiar query params
         window.history.replaceState({}, document.title, window.location.pathname);
-      } else {
-        const data = await res.json();
-        setError(data.error || "Error al procesar la orden");
       }
-    } catch {
-      setError("Error de red al conectar con el servidor");
+    } catch (err) {
+      console.error('Error creando orden:', err);
+      setError("Error al procesar la orden");
     }
     setLoading(false);
   };
@@ -149,18 +148,18 @@ export default function Checkout() {
     setLoading(true);
     try {
       saveCheckoutData();
-      const res = await fetch("https://backriocuartocelulares.onrender.com/api/pago/mercadopago", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, nombre: form.nombre, email: form.email })
+      const { data, error: mpError } = await supabase.functions.invoke('create-mercado-pago', {
+        body: { items, nombre: form.nombre, email: form.email }
       });
-      const data = await res.json();
-      if (data.init_point) {
-        window.location.href = data.init_point;
+      if (mpError) {
+        setError(mpError.message || "Error al conectar con Mercado Pago");
+      } else if (data?.preference?.init_point) {
+        window.location.href = data.preference.init_point;
       } else {
         setError("No se pudo iniciar el pago con Mercado Pago");
       }
-    } catch {
+    } catch (err) {
+      console.error('Error iniciando pago:', err);
       setError("Error al conectar con Mercado Pago");
     }
     setLoading(false);

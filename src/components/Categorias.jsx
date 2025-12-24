@@ -82,7 +82,7 @@ export default function Categorias({ onCategoriaClick, categoriaSeleccionada, pr
             >
               <button
                 onClick={() => onCategoriaClick(categoria.nombre)}
-                className={`w-full h-48 rounded-2xl shadow-2xl overflow-hidden relative group transition-all duration-300 ${
+                className={`w-full h-48 rounded-[2rem] shadow-2xl overflow-hidden relative group transition-all duration-300 ${
                   categoriaSeleccionada === categoria.nombre 
                     ? 'ring-4 ring-gray-400 ring-offset-2 ring-offset-gray-900' 
                     : 'hover:shadow-gray-500/25'

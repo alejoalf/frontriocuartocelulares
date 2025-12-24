@@ -2,11 +2,10 @@ import React from "react";
 import { FaTrash, FaEdit, FaSearch, FaFilter, FaTimes } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
 import { addToCart, setProductos, updateProductoStock, removeProducto } from "../store/cartSlice";
-import { useSocket } from "../hooks/useSocket";
+import { supabase } from "../config/supabaseClient";
 import { motion } from "framer-motion";
 import Categorias from "./Categorias";
 
-const API_URL = "https://backriocuartocelulares.onrender.com/api/productos";
 const PAGE_SIZE = 6;
 
 function ConfirmModal({ open, onClose, onConfirm, producto }) {
@@ -203,66 +202,74 @@ export default function Productos({ productos: productosProp, adminMode }) {
   const [categoriaSeleccionada, setCategoriaSeleccionada] = React.useState("");
   
   const dispatch = useDispatch();
-  const socket = useSocket();
+  const syncProductos = React.useCallback((transform) => {
+    setProductosLocal(prev => {
+      const next = transform(prev);
+      dispatch(setProductos(next));
+      return next;
+    });
+  }, [dispatch]);
 
-  // Escuchar eventos de WebSocket
+  // Escuchar realtime desde Supabase
   React.useEffect(() => {
-    if (!socket) return;
-
-    // Escuchar actualizaciones de stock
-    socket.on('stock-updated', (data) => {
-      dispatch(updateProductoStock(data));
-      
-      // Actualizar también el estado local
-      setProductosLocal(prev => 
-        prev.map(p => 
-          p.id === data.productoId 
-            ? { ...p, stock: data.stock }
-            : p
-        )
-      );
-    });
-
-    // Escuchar eliminación de productos
-    socket.on('producto-eliminado', (data) => {
-      dispatch(removeProducto(data.productoId));
-      
-      // Actualizar también el estado local
-      setProductosLocal(prev => 
-        prev.filter(p => p.id !== data.productoId)
-      );
-    });
+    const channel = supabase
+      .channel('productos-stream')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'productos' }, payload => {
+        const nuevo = payload.new;
+        syncProductos(prev => {
+          const exists = prev.some(p => p.id === nuevo.id);
+          if (exists) {
+            return prev.map(p => p.id === nuevo.id ? { ...p, ...nuevo } : p);
+          }
+          return [nuevo, ...prev];
+        });
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'productos' }, payload => {
+        const actualizado = payload.new;
+        dispatch(updateProductoStock({ productoId: actualizado.id, stock: actualizado.stock }));
+        syncProductos(prev => prev.map(p => p.id === actualizado.id ? { ...p, ...actualizado } : p));
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'productos' }, payload => {
+        const eliminado = payload.old;
+        dispatch(removeProducto(eliminado.id));
+        syncProductos(prev => prev.filter(p => p.id !== eliminado.id));
+      })
+      .subscribe();
 
     return () => {
-      socket.off('stock-updated');
-      socket.off('producto-eliminado');
+      supabase.removeChannel(channel);
     };
-  }, [socket, dispatch]);
+  }, [dispatch, syncProductos]);
 
   React.useEffect(() => {
     if (productosProp) {
-      setProductosLocal(productosProp);
-      dispatch(setProductos(productosProp));
+      syncProductos(() => productosProp);
       setLoading(false);
     }
-  }, [productosProp, dispatch]);
+  }, [productosProp, syncProductos]);
 
   React.useEffect(() => {
     if (!productosProp) {
       setLoading(true);
-      fetch(API_URL)
-        .then(res => res.json())
-        .then(data => {
-          setProductosLocal(data);
-          dispatch(setProductos(data));
+      supabase
+        .from('productos')
+        .select('*')
+        .then(({ data, error: dbError }) => {
+          if (dbError) throw dbError;
+          const rows = (data || []).sort((a, b) => {
+            const dateA = new Date(a.created_at ?? a.createdAt ?? 0).getTime();
+            const dateB = new Date(b.created_at ?? b.createdAt ?? 0).getTime();
+            return dateB - dateA;
+          });
+          syncProductos(() => rows);
           setLoading(false);
         })
-        .catch((error) => {
-          console.error('Error cargando productos:', error);
+        .catch((dbError) => {
+          console.error('Error cargando productos:', dbError);
           setLoading(false);
         });
     }
-  }, [productosProp, dispatch]);
+  }, [productosProp, syncProductos]);
 
   // Categorías y subcategorías (de todos los productos, no solo filtrados)
   const categorias = React.useMemo(() => Array.from(new Set((productosProp || productos).map(p => p.categoria).filter(Boolean))), [productosProp, productos]);
@@ -325,22 +332,18 @@ export default function Productos({ productos: productosProp, adminMode }) {
     setMsg("");
     if (!productoAEliminar) return;
     try {
-      const token = localStorage.getItem("adminToken");
-      const res = await fetch(`${API_URL}/${productoAEliminar.id}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      if (res.ok) {
-        setProductosLocal(prev => prev.filter(p => p.id !== productoAEliminar.id));
-        dispatch(removeProducto(productoAEliminar.id));
-        setMsg("Producto eliminado correctamente");
-      } else {
-        setError("Error al eliminar producto");
+      const { error: deleteError } = await supabase
+        .from('productos')
+        .delete()
+        .eq('id', productoAEliminar.id);
+      if (deleteError) {
+        throw deleteError;
       }
-    } catch {
-      setError("Error de red al eliminar producto");
+      syncProductos(prev => prev.filter(p => p.id !== productoAEliminar.id));
+      setMsg("Producto eliminado correctamente");
+    } catch (err) {
+      console.error('Error eliminando producto:', err);
+      setError("Error al eliminar producto");
     }
     setModalOpen(false);
     setProductoAEliminar(null);
@@ -352,26 +355,26 @@ export default function Productos({ productos: productosProp, adminMode }) {
     setError("");
     setMsg("");
     try {
-      const token = localStorage.getItem("adminToken");
-      const res = await fetch(`${API_URL}/${form.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify(form)
-      });
-      if (res.ok) {
-        setProductosLocal(prev => prev.map(p => p.id === form.id ? { ...p, ...form } : p));
-        dispatch(setProductos(productos.map(p => p.id === form.id ? { ...p, ...form } : p)));
-        setMsg("Producto editado correctamente");
-        setEditModalOpen(false);
-        setProductoAEditar(null);
-      } else {
-        setError("Error al editar producto");
+      const { id, ...rest } = form;
+      const payload = {
+        ...rest,
+        precio: rest.precio !== undefined ? Number(rest.precio) : undefined,
+        stock: rest.stock !== undefined && rest.stock !== null ? Number(rest.stock) : undefined
+      };
+      const { error: updateError } = await supabase
+        .from('productos')
+        .update(payload)
+        .eq('id', id);
+      if (updateError) {
+        throw updateError;
       }
-    } catch {
-      setError("Error de red al editar producto");
+      syncProductos(prev => prev.map(p => p.id === id ? { ...p, ...payload } : p));
+      setMsg("Producto editado correctamente");
+      setEditModalOpen(false);
+      setProductoAEditar(null);
+    } catch (err) {
+      console.error('Error editando producto:', err);
+      setError("Error al editar producto");
     }
     setTimeout(() => { setMsg(""); setError(""); }, 2500);
   };

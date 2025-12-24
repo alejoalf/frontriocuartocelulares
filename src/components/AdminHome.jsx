@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import AdminLogin from "./AdminLogin";
 import AdminPanel from "./AdminPanel";
 import Productos from "./Productos";
 import AdminOrders from "./AdminOrders";
+import { supabase } from "../config/supabaseClient";
 
 const PAGE_SIZE = 6;
 
@@ -53,30 +54,93 @@ function CategoriasStats({ productos }) {
 }
 
 export default function AdminHome() {
-  const [token, setToken] = useState(localStorage.getItem("adminToken") || "");
+  const [session, setSession] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [productos, setProductos] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [tab, setTab] = useState("productos");
-
-  // Función para cargar productos
-  const fetchProductos = async () => {
-    const res = await fetch("https://backriocuartocelulares.onrender.com/api/productos");
-    const data = await res.json();
-    setProductos(data);
-  };
+  const [checkingAdmin, setCheckingAdmin] = useState(true);
 
   useEffect(() => {
-    if (token) fetchProductos();
-  }, [token]);
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (active) {
+        setSession(data.session);
+      }
+    });
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      if (active) {
+        setSession(newSession);
+      }
+    });
+    return () => {
+      active = false;
+      authListener.subscription?.unsubscribe();
+    };
+  }, []);
 
-  const handleLogin = (jwt) => {
-    setToken(jwt);
-    localStorage.setItem("adminToken", jwt);
+  useEffect(() => {
+    let active = true;
+    if (!session) {
+      setIsAdmin(false);
+      setCheckingAdmin(false);
+      return;
+    }
+    setCheckingAdmin(true);
+    supabase
+      .from('admin_profiles')
+      .select('role')
+      .eq('id', session.user.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error || !data || data.role !== 'admin') {
+          setIsAdmin(false);
+          supabase.auth.signOut();
+        } else {
+          setIsAdmin(true);
+        }
+      })
+      .finally(() => {
+        if (active) setCheckingAdmin(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [session]);
+
+  const fetchProductos = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('productos')
+      .select('*');
+    if (error) {
+      console.error('Error cargando productos:', error);
+      return;
+    }
+    const rows = (data || []).sort((a, b) => {
+      const dateA = new Date(a.created_at ?? a.createdAt ?? 0).getTime();
+      const dateB = new Date(b.created_at ?? b.createdAt ?? 0).getTime();
+      return dateB - dateA;
+    });
+    setProductos(rows);
+  }, []);
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchProductos();
+    } else {
+      setProductos([]);
+    }
+  }, [isAdmin, fetchProductos]);
+
+  const handleLogin = (newSession) => {
+    setSession(newSession);
   };
 
-  const handleLogout = () => {
-    setToken("");
-    localStorage.removeItem("adminToken");
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setIsAdmin(false);
   };
 
   // Cuando se agrega un producto, refresca la lista
@@ -89,10 +153,29 @@ export default function AdminHome() {
     }
   };
 
-  if (!token) {
+  if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-cyan-100 to-blue-200">
         <AdminLogin onLogin={handleLogin} />
+      </div>
+    );
+  }
+
+  if (checkingAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-cyan-100 to-blue-200">
+        <div className="bg-white/90 px-6 py-4 rounded-2xl shadow">Verificando permisos...</div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-cyan-100 to-blue-200">
+        <div className="bg-white/90 px-6 py-4 rounded-2xl shadow text-center">
+          <p className="font-semibold text-red-600">Tu cuenta no tiene acceso de administrador.</p>
+          <button onClick={handleLogout} className="mt-4 bg-blue-700 text-white px-4 py-2 rounded">Salir</button>
+        </div>
       </div>
     );
   }
@@ -120,7 +203,7 @@ export default function AdminHome() {
           <div className="w-full md:w-[400px] flex flex-col items-center">
             <CategoriasStats productos={productos} />
             <div className="bg-white/90 shadow-2xl rounded-3xl p-8 md:p-10 w-full border border-blue-100">
-              <AdminPanel token={token} onProductoAgregado={handleProductoAgregado} setProductos={setProductos} productosExistentes={productos} />
+              <AdminPanel onProductoAgregado={handleProductoAgregado} productosExistentes={productos} />
             </div>
           </div>
         </div>
@@ -128,7 +211,7 @@ export default function AdminHome() {
       {tab === "pedidos" && (
         <div className="w-full max-w-5xl mx-auto">
           <div className="bg-white/90 rounded-3xl shadow-2xl border border-blue-100 p-6 md:p-10">
-            <AdminOrders />
+            <AdminOrders session={session} />
           </div>
         </div>
       )}

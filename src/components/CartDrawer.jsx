@@ -4,7 +4,6 @@ import { removeFromCart, updateQuantity, clearCart, clearCartError, clearCartSuc
 import { motion, AnimatePresence } from "framer-motion";
 import { FaShoppingCart, FaTrash, FaTimes, FaBoxOpen, FaMinus, FaPlus, FaExclamationTriangle } from "react-icons/fa";
 import { useCart } from "../hooks/useCart";
-import { useSocket } from "../hooks/useSocket";
 import { useNavigate } from "react-router-dom";
 
 export default function CartDrawer({ open, onClose, onCheckout, addToast }) {
@@ -12,7 +11,6 @@ export default function CartDrawer({ open, onClose, onCheckout, addToast }) {
   const error = useSelector(state => state.cart.error);
   const success = useSelector(state => state.cart.success);
   const dispatch = useDispatch();
-  const socket = useSocket();
   const total = items.reduce((sum, p) => sum + p.precio * p.cantidad, 0);
   const subtotal = total;
   // Simulación de envío

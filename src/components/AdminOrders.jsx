@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
-import { FaBoxOpen, FaSearch, FaCheck, FaTimes, FaTruck, FaHourglassHalf, FaClipboardList } from "react-icons/fa";
+import React, { useEffect, useState, useCallback } from "react";
+import { FaBoxOpen, FaCheck, FaTimes, FaTruck, FaHourglassHalf, FaClipboardList } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "../config/supabaseClient";
 
 const ESTADOS = [
   { value: "pendiente", label: "Pendiente", icon: <FaHourglassHalf className="text-yellow-500" /> },
@@ -20,37 +21,42 @@ function EstadoBadge({ estado }) {
     "border-red-300 text-red-700"}`}>{e.icon}{e.label || estado}</span>;
 }
 
-export default function AdminOrders() {
+export default function AdminOrders({ session }) {
   const [ordenes, setOrdenes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null);
-  const [token, setToken] = useState("");
   const [estadoEdit, setEstadoEdit] = useState("");
   const [saving, setSaving] = useState(false);
-
-  // Obtener token admin del localStorage 
-  useEffect(() => {
-    setToken(localStorage.getItem("adminToken") || "");
-  }, []);
-
-  // Cargar órdenes
-  useEffect(() => {
-    if (!token) return;
+  const fetchOrdenes = useCallback(async () => {
+    if (!session) return;
     setLoading(true);
-    fetch("https://backriocuartocelulares.onrender.com/api/ordenes", {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        setOrdenes(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(() => {
-        setError("Error al cargar las órdenes");
-        setLoading(false);
+    const { data, error: dbError } = await supabase
+      .from('ordenes')
+      .select('*');
+    if (dbError) {
+      console.error('Error al obtener órdenes:', dbError);
+      setError("Error al cargar las órdenes");
+      setOrdenes([]);
+    } else {
+      const rows = (Array.isArray(data) ? data : []).sort((a, b) => {
+        const dateA = new Date(a.created_at ?? a.createdAt ?? 0).getTime();
+        const dateB = new Date(b.created_at ?? b.createdAt ?? 0).getTime();
+        return dateB - dateA;
       });
-  }, [token]);
+      setOrdenes(rows);
+      setError("");
+    }
+    setLoading(false);
+  }, [session]);
+
+  useEffect(() => {
+    if (session) {
+      fetchOrdenes();
+    } else {
+      setOrdenes([]);
+    }
+  }, [session, fetchOrdenes]);
 
   // Abrir detalles
   const openDetails = (orden) => {
@@ -67,24 +73,20 @@ export default function AdminOrders() {
     if (!selected) return;
     setSaving(true);
     try {
-      const res = await fetch(`https://backriocuartocelulares.onrender.com/api/ordenes/${selected.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ estado: estadoEdit })
+      const { data, error: updateError } = await supabase.rpc('set_orden_estado', {
+        p_orden_id: selected.id,
+        p_estado: estadoEdit
       });
-      if (res.ok) {
-        setOrdenes(ordenes => ordenes.map(o => o.id === selected.id ? { ...o, estado: estadoEdit } : o));
-        closeDetails();
-        // El backend emitirá automáticamente los eventos de stock
-        console.log(`Estado cambiado de ${selected.estado} a ${estadoEdit} - Los eventos de stock se emitirán automáticamente`);
-      } else {
-        setError("No se pudo actualizar el estado");
+      if (updateError) {
+        throw updateError;
       }
-    } catch {
-      setError("Error de red al actualizar estado");
+      if (data) {
+        setOrdenes(ordenes => ordenes.map(o => o.id === data.id ? data : o));
+      }
+      closeDetails();
+    } catch (err) {
+      console.error('Error al actualizar estado:', err);
+      setError("No se pudo actualizar el estado");
     }
     setSaving(false);
   };
@@ -122,7 +124,10 @@ export default function AdminOrders() {
                   <td className="p-3">{o.telefono}</td>
                   <td className="p-3">${Number(o.total).toLocaleString()}</td>
                   <td className="p-3"><EstadoBadge estado={o.estado} /></td>
-                  <td className="p-3">{o.createdAt ? new Date(o.createdAt).toLocaleString() : "-"}</td>
+                  <td className="p-3">{(() => {
+                    const fecha = o.created_at ?? o.createdAt;
+                    return fecha ? new Date(fecha).toLocaleString() : "-";
+                  })()}</td>
                   <td className="p-3">
                     <button onClick={() => openDetails(o)} className="bg-blue-700 hover:bg-blue-900 text-white px-3 py-1 rounded text-xs font-bold">Ver</button>
                   </td>
@@ -145,7 +150,10 @@ export default function AdminOrders() {
               <div className="mb-2"><span className="font-semibold">Dirección:</span> {selected.direccion}</div>
               <div className="mb-2"><span className="font-semibold">Total:</span> ${Number(selected.total).toLocaleString()}</div>
               <div className="mb-2"><span className="font-semibold">Estado:</span> <EstadoBadge estado={selected.estado} /></div>
-              <div className="mb-4"><span className="font-semibold">Fecha:</span> {selected.createdAt ? new Date(selected.createdAt).toLocaleString() : "-"}</div>
+              <div className="mb-4"><span className="font-semibold">Fecha:</span> {(() => {
+                const fecha = selected?.created_at ?? selected?.createdAt;
+                return fecha ? new Date(fecha).toLocaleString() : "-";
+              })()}</div>
               <div className="mb-4">
                 <span className="font-semibold">Productos:</span>
                 <ul className="mt-2 space-y-2">
